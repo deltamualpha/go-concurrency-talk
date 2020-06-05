@@ -1,0 +1,500 @@
+Understanding Real-World Concurrency Bugs in Go
+
+David Ashby
+5 June 2020
+delta.mu.alpha@gmail.com
+https://deltamualpha.org/
+@alazyreader
+
+* What is this paper?
+
+"Go advocates for the usage of message passing as the means of inter-thread communication and provides several new concurrency mechanisms and libraries to ease multi-threading programming. It is important to understand the implication of these new proposals and the comparison of message passing and shared memory synchronization in terms of program errors, or bugs."
+
+* A Few Notes On The Slides
+
+- Any unattributed block-quotes are from the paper
+- Made using the `present` tool from the go toolchain [[https://godoc.org/golang.org/x/tools/present]]
+- (And let me tell you I am going to file some bug reports)
+- Slides will be posted on my github account: [[https://github.com/deltamualpha]]
+
+* A Personal Note
+
+* Section 1: Introduction
+
+* Message Passing
+
+.link https://www.cs.cmu.edu/~crary/819-f09/Hoare78.pdf C. A. R. Hoare - Communicating Sequential Processes - Communications of the ACM, 21(8):666-677, 1978
+
+.image communicating-sequential-processes-hoare.png _ 800
+
+: With that citation, I started following a rabbit hole of lookups and citations that I ended up finding very interesting, so let's go exploring for a few minutes, shall we?
+
+* CSP
+
+- CSP is a general-purpose model for inter-process communication, and here "process" is being defined _very_ loosely.
+- It centers on the concept of "inputs" and "outputs" between processes that can be linked together.
+
+: The Hoare paper is the landmark in the field, and basically everyone cites it constantly. Erlang is based on this model. Linux pipes are based on this model; Russ Cox mentions this in his history of Bell Labs and CSP
+
+* Shells
+
+"Of course, the Unix pipe mechanism doesn't require the linear layout; only the shell syntax does. McIlroy reports toying with syntax for a shell with general plumbing early on but not liking the syntax enough to implement it. Later shells did support some restricted forms of non-linear pipelines. Rochkind's `2dsh` supports dags; Tom Duff's `rc` supports trees."
+
+.link https://swtch.com/~rsc/thread/ Russ Cox - Bell Labs and CSP Threads
+
+: Multi-dimensional pipes! I can't even imagine the syntax. It'd probably look something like named pipes (which are already something of a bear to work with)?
+
+* Aside #1: The TIS-100
+
+.link http://www.zachtronics.com/tis-100/
+
+*   
+
+.background asides/tis-100.jpg
+
+: Some of these diagrams remind me of the TIS-100, a game by Zachtronics, which, now that I think about it, more or less implements a variety of CSP using unbuffered communication between neighboring processes.
+
+* What's this got to do with Go?
+
+"One of the most successful models for providing high-level linguistic support for concurrency comes from Hoare's Communicating Sequential Processes, or CSP. Occam and Erlang are two well known languages that stem from CSP. Go's concurrency primitives derive from a different part of the family tree whose main contribution is the powerful notion of channels as first class objects. Experience with several earlier languages has shown that the CSP model fits well into a procedural language framework."
+
+.link https://golang.org/doc/faq#csp The Go FAQ
+
+* Rob Pike
+
+- Squeak and Newsqueak (GUI-focused programming languages)
+- Plan 9 and Inferno (Operating Systems)
+- Limbo (CSP-focused language for Inferno)
+- go
+
+: It's almost certainly overly reductive to view this chain of languages through the lens of Rob Pike's involvement. There were lots of people collaboratorating on these projects at Bell Labs over the years...
+
+: Pun callout: Squeak because mouse-pointers; Limbo and Inferno (with the Dis (the city of hell in Dante where sinner who actively chose to commit sins) as the virtual machine)!
+
+* Squeak and Newsqueak
+
+.link https://swtch.com/~rsc/thread/cws.pdf A Concurrent Window System
+
+.image a-concurrent-window-system.png _ 800
+
+: Curiously, the first forays into this that I have documentation of are centered on _graphical user interfaces_ -- Squeak and Newsqueak are named as such because they interact with the mouse. I say "curiously" because Go has no GUI components in its standard library, and is definitely not put forward as a language that's _designed_ for GUI use.
+
+* CSP in Newsqueak
+
+.image a-concurrent-window-system-excerpt.png _ 800
+
+* CSP in go
+
+- Thomas Kapper implemented all of the examples from the Hoare paper in go
+
+.link https://github.com/thomas11/csp/
+
+- Go blog has an early (2010!) post called "Share Memory By Communicating" that shows how programmers can use message passing instead of mutexes and locks to build simpler, cleaner, less buggy parallel programs
+
+.link https://blog.golang.org/share-memory-by-communicating
+
+- Sir Charles Antony Richard Hoare -- Tony to his friends -- is still alive, in his 80s and living and working in the UK.
+
+.link http://www.cs.ox.ac.uk/people/tony.hoare/
+
+: Just to close the loop here: CSP almost certainly isn't even the thing Hoare most famous for: he also developed Quicksort and worked on Algol 60 (the granddaddy of the entire C branch of programming languages), and as part of that later apologized for introducing the concept of the "null reference" to computer science. There's also a quote from him that I'm stealing off his wikipedia entry that I wanted to share with you all.
+
+* Hoare on Formal Methods
+
+"Ten years ago, researchers into formal methods (and I was the most mistaken among them) predicted that the programming world would embrace with gratitude every assistance promised by formalisation to solve the problems of reliability that arise when programs get large and more safety-critical. Programs have now got very large and very critical – well beyond the scale which can be comfortably tackled by formal methods. There have been many problems and failures, but these have nearly always been attributable to inadequate analysis of requirements or inadequate management control. It has turned out that the world just does not suffer significantly from the kind of problem that our research was originally intended to solve."
+
+- Hoare, C. A. R. (1996). "Unification of Theories: A Challenge for Computing Science". Selected papers from the 11th Workshop on Specification of Abstract Data Types Joint with the 8th COMPASS Workshop on Recent Trends in Data Type Specification. Springer-Verlag. pp. 49–57.
+
+* Aside #2: Glenda, the Plan 9 Bunny
+
+Rob Pike's wife is the illustrator Renée French, and she drew the logo for  Plan 9. Plan 9 is named after Ed Wood's classic(?) sci-fi film Plan 9 From Outer Space, and the ruler of the antagonist aliens (credited a simply as "The Ruler") is played by John "Bunny" Breckinridge, who Wikipedia describes as "an American actor and drag queen".
+
+*  
+
+.image asides/plan-9-bunny.jpg 600 _
+
+* And, Of Course, Her Cousin The Gopher
+
+.image asides/gopher.png 500 _
+
+* Back to the paper
+
+"A major design goal of Go is to improve traditional multi-threaded programming languages and make concurrent programming easier and less error-prone."
+
+: Whether this is true or not is open to debate, but the authors here attempt to see if go actually makes concurrent programming easier and less error-prone through emperical research on real codebases.
+
+* Methodology
+
+"In this paper, we conduct the first empirical study on Go concurrency bugs using six open-source, production-grade Go applications: Docker and Kubernetes, two datacenter container systems, etcd, a distributed key-value store system, gRPC, an RPC library, and CockroachDB and BoltDB, two database systems.
+
+"In total, we have studied 171 concurrency bugs in these applications. We analyzed the root causes of them, performed experiments to reproduce them, and examined their fixing patches. Finally, we tested them with two existing Go concurrency bug detectors (the only publicly available ones)."
+
+: (Note that development work on BoltDB has since been frozen and the project forked to bbolt under the auspices of the etcd team: https://github.com/etcd-io/bbolt)
+
+: Their method here is not "we're going to go examine these code bases and find new bugs" but "we're going to go through these large go language projects' github repositories, grep through of their issues, merge requests, and commits, identify those that involve 'concurrency', and then examine causes and fixes".
+
+* Figure 1
+
+.code figures/figure-1.go /BASIC OMIT/,/ENDBASIC OMIT/
+
+: This is their first example figure! And let me talk here about my first annoyance with this paper: the figures (and references to them) are... rough! This isn't techncially valid go code; it's a rewritten and extremely abbreviated version of the actual bug (which they don't call out to in the body of the paper itself).
+
+* Figure 1
+
+.code figures/figure-1.go /FULL OMIT/,/ENDFULL OMIT/
+
+* Notes on go syntax for those unfamiliar
+
+- An anonymous goroutine, here defined by `go` `func()` `{...}`, inherits the scope of its parent -- `ch` inside that goroutine is the same as the one in the parent. That's true not only of named channels like that but any other variables, and important to keep in mind for some of the other examples, which depend on misuse of this fact.
+- `select{}` will block until one of its cases becomes executable -- but if more than one case is "available", the runtime will _randomly_ pick a case to execute. Presumably, this randomization is to prevent programmers from becoming dependent on an implementation detail of how the runtime decides which branch to pick, but it can also be a source of bugs. 
+
+: (Go also explicitly refuses to promise a stable iteration order over maps to prevent programmers from relying on an implementation detail that may not be the same across releases or hardware.)
+
+* The bug
+
+- If the timeout branch executes in the parent function, the function returns and the child goroutine will _never_ be able to exit, instead blocking forever on `ch` `<-` `result` or `errCh` `<-` `err`. The original code had unbuffered channels (that is, channels that block writers until there's a reader available on the other end) -- but the reader in this case has hung up the phone.
+- Switching to buffered channels allows the child goroutine to push its message onto a channel and exit, even if the parent function has already returned `nil,` `error` and exited. Go's garbage collector will eventually reap any orphaned channels and any values that were written into them (as long as there are no other references to those values).
+
+.link https://github.com/kubernetes/kubernetes/pull/5316
+
+* Reconstructing the examples
+
+- It's worth noting here the only way I was able to reconstruct this real code example from the figure in the paper is because the dataset used for the paper is in a repo. It also includes links to the google docs files they used to discuss each bug, some of which are visible to anyone with the URL!
+- I'm not sure they're actually supposed to be public.
+
+.link https://github.com/system-pclub/go-concurrency-bugs
+
+* Section 2: Reviewing go Concurrency Primitives
+
+* Mutex
+
+- Mutual Exclusion Lock a.k.a. `Mutex`: basic locks. Only one process can have the lock, any other calls to try and get the lock block until the lock is available again.
+
+.play examples/mutex.go /START OMIT/,/END OMIT/
+
+: the paper takes the time to review the various forms of concurrency primitive available to go developers, so I'll rip through them here as well.
+
+* RWMutex
+
+- Read/Write Mutual Exclusion Lock a.k.a. `RWMutex`: many simultaneous readers, but only one writer, who blocks all other accesses until the lock is released.
+- A call to `Lock()` that's blocked takes priority over all other `RLock()` calls, to make sure that writer can break through a read-heavy mutex. This is a change from how this is implemented in other languages.
+
+* RWMutex Example
+
+.play examples/rwmutex.go /START OMIT/,/END OMIT/
+
+* Conditional Variables
+
+- Conditional Variables a.k.a. `Cond`: built around a mutex, this adds `Wait()` and `Broadcast()`, which allow a process with the lock to temporarily give it up and wait for the next process to release it again, at which point the other process needs to broadcast and tell all waiting processes that they can resume again.
+
+.play examples/cond.go /START OMIT/,/END OMIT/
+
+: In theory, any process that's waiting should actually check to see if the state of the system that it's waiting on has actually been achieved before proceeding, since more than one process might be waiting and someone else might have gotten to the piece of shared state that we were waiting for first. `Cond` can be confusing because it's a semaphore for marking that some condition has been reached but does not in itself contain that condition, which can lead to race conditions if not used with care.
+
+* Once
+
+- `Once` is a go construct that provides that a function will only be called, well, once. It doesn't matter _what_ function you give it; you can call the same `Do()` with many times and it only runs the first one provided -- this is not the same as memoization.
+
+.play examples/once.go /START OMIT/,/END OMIT/
+
+* WaitGroup
+
+- `WaitGroup` is a construct to make that idiom of waiting for all goroutines to finish we saw in the last example easier: given a bunch of processes, block until they're all marked as complete before proceeding.
+
+.play examples/waitgroup.go /START OMIT/,/END OMIT/
+
+: The example for `Once` I used also points toward something interesting: I took that directly from the documentation for the go sync library (with some tweaks for clarity). Go doesn't treat concurrency models as an either-or proposition; the documentation freely mixes "traditional" concurrency primitives with channel-based ones.
+
+* Section 3: Usage Patterns
+
+"Overall, the six applications use a large amount of goroutines."
+
+.image figures/table-2.png _ 800
+
+: BoltDB is an obvious outlier here in raw numbers, but gRPC-Go is the one with the highest _density_ of channels created. 
+
+* Observation 1
+
+"*Observation* *1*: Goroutines are shorter but created more frequently than C (both statically and at runtime)."
+
+- This follows from the stated goal of go to make goroutines "cheap", but I don't know if there's actually interesting results here, because...
+
+"We found all threads in gRPC-C execute from the beginning to the end of the whole program (i.e., 100%)"
+
+- This implies to me that the C threads and the goroutines are serving _different practical functions_.
+
+: And while they may conceptually be the "same primitives" in some sense, does this result actually tell us anything? If the threads were being spun up in response to requests, as the goroutines presumably are, their relative execution times might be useful to compare, but as it is I don't know that they've actually collected enough evidence to make this observation.
+
+* Figure 2 & 3
+
+These charts are identical, and don't tell us much, which might be why there's little comment on them in the text of the paper.
+
+.image figures/figure-2.png _ 800
+
+: `etcd`'s status as an outlier here is interesting -- I wish there was some examination of these six projects in relation to each other, why they might be choosing shared-memory vs message-passing, but that's not what the paper's authors chose to focus on in their introduction. I think that'd be more revealing than comparing gRPC's go and C implementations!
+
+* Implication 1
+
+"*Implication* *1*: With heavier usages of goroutines and new types of concurrency primitives, Go programs may potentially introduce more concurrency bugs."
+
+: With this, they lay out the actual question they're interested in trying to answer in the paper.
+
+* Section 4: Methodology
+
+* git log --grep
+
+"To collect concurrency bugs, we first filtered GitHub commit histories of the six applications by searching their commit logs for concurrency-related keywords, including “race”, “deadlock”, “synchronization”, “concurrency”, “lock”, “mutex”, “atomic”, “compete”, “context”, “once”, and “goroutine leak”. Some of these keywords are used in previous works to collect concurrency bugs in other languages. Some of them are related to new concurrency primitives or libraries introduced by Go, such as “once” and “context”. One of them, “goroutine leak”, is related to a special problem in Go. In total, we found 3211 distinct commits that match our search criteria."
+
+: It's worth noting that they're using slightly different categories than other papers on this topic: "blocking vs. non-blocking" instead of "deadlock vs non-deadlock". The main difference is "blocking" includes not just deadlocks, where all processes cannot move forward, but also places where just some _portion_ of the overall program is stuck waiting for a resource that can never be satisfied. Thinking back to the example given with the kubernetes bug -- changing from an unbuffered to a buffered channel -- we can say this definition captures "leaky" goroutines alongside full deadlocks.
+
+* 
+
+"We then randomly sampled the filtered commits, identified commits that fix concurrency bugs, and manually studied them. Many bug-related commit logs also mention the corresponding bug reports, and we also study these reports for our bug analysis. We studied 171 concurrency bugs in total.
+
+"We only studied concurrency bugs that have been fixed. There could be other concurrency bugs that are rarely reproduced and are never fixed by developers. For some fixed concurrency bugs, there is too little information provided, making them hard to understand. We do not include these bugs in our study."
+
+: Why random sampling? I assume this is so they can get an "unbiased" look at the commits? But that also means that this is of course a subset of the actual bugs that might have been present over the lifetime of these applications and we're relying on the power of _statistics_ -- but are all classes of bugs evenly distributed? No way of knowing. The bug lifetime graph in Figure 4 implies that both classes of bugs share the same "time to discovery and fix" characteristics, which does lend some support to their findings.
+
+* Section 5: Blocking Bugs
+
+* 
+
+"Overall, we found that there are around 42% blocking bugs caused by errors in protecting shared memory, and 58% are caused by errors in message passing. Considering that shared memory primitives are used more frequently than message passing ones, message passing operations are even more likely to cause blocking bugs."
+
+AND THEREFORE
+
+"*Observation* *3*: Contrary to the common belief that message passing is less error-prone, more blocking bugs in our studied Go applications are caused by wrong message passing than by wrong shared memory protection."
+
+* But but but
+
+- This is the big headline takeaway that the paper got some traction for, and it's definitely how I first heard about it. 
+- "Go's designers talk a big game about how much better and safer their language is because of channels, but _really_ it's worse!"
+- Everyone loves a story about how conventional wisdom is wrong! And the paper hit just as go really seemed to be taking off, mindshare-wise, among the broader programming community.
+
+* Tables 4 and 5
+
+.image figures/table-4.png _ 500
+
+.image figures/table-5.png _ 500
+
+: But if you look at the tables and charts in this section, I think this observation seems to be shaving the numbers a little thinly. Table 5 shows that, _overall_, shared memory misprotection contributed to more bugs than message passing, just a hair over 60% of analysed bugs. And referencing Table 4, shared memory is used _more often_ in general for concurrency; depending on the application, between 60%-80% of concurrency primitives are shared memory over message passing. And, of course, there's the fudge of "channel w/ other", which seems to stand for "channel operations and memory-sharing operations interleaved" -- why does the channel part get blamed there instead of the misuse of a mutex?
+
+* "blocking" versus "nonblocking"
+
+This sounds like a difference in severity when you read it, but...
+
+\...there's no categorical way to assert that blocking bugs are "more important" or "more serious" than non-blocking bugs.
+
+- "Yes, our goroutines never block, but the data race that's in there results in every checking account processed by the application to silently lose a penny on every transaction." Program incorrectness comes in many forms!
+
+* Figure 5
+
+.code figures/figure-5.go
+
+* Figure 5
+
+.link https://github.com/moby/moby/pull/25384
+
+Super-simple bug, super-simple fix:
+
+- create a `WaitGroup`, increment it up to wait for the number of plugins, then range over the plugins and fire off goroutines for each one, doing some registration and decrementing the group at the end of each goroutine. They even properly passed each round's plugin into the goroutine as a function argument instead of relying on the shared variable, which is a _very_ common bug...
+- ...but then just put the `Wait()` in the wrong place, waiting at the end of each loop of the range instead of after the range was finished. Works just fine for the `0` and `1` plugin cases, blocks forever in the `1+n` case, waiting for calls to `Done()` that the `Wait()` itself is keeping from proceeding.
+
+* Their description
+
+"Although conditional variable and thread group wait are both traditional concurrency techniques, we suspect Go’s new programming model to be one of the reasons why programmers made these concurrency bugs. For example, unlike `pthread_join` which is a function call that explicitly waits on the completion of (named) threads, `WaitGroup` is a variable that can be shared across goroutines and its `Wait` function implicitly waits for the `Done` function."
+
+: Interestingly, it wouldn't _block_ if they called `group.Add()` inside the range loop before starting a goroutine, but it also would probably still be a bug: you'd only get sequential processing of the goroutines, because the group would `Wait()` for each run to finish.
+
+* Another Misuse of Add/Wait
+
+.play examples/waitgroup-add-misuse.go  /START OMIT/,/END OMIT/
+
+* Severity?
+
+.link https://github.com/moby/moby/pull/23580
+
+It's hard to call this a big bug; I don't know that it was caused by some _misunderstanding_ of the concurrency primitive here. If you look at the PR where it was introduced, I read the patch and this resulting bug as an typo that snuck in because the programmer who wrote this restore feature only tested with 0 and 1 plugins. And, to be fair, that's probably partially the paper's point. This is an obvious, easy mistake that's well-understood but also hard to catch when your eyes are skimming over the code for the _business_ _logic_ pieces and not the _concurrency_ pieces.
+
+* Message Passing!
+
+"We now discuss blocking bugs caused by errors in message passing, which in the contrary of common belief are the main type of blocking bugs in our studied applications."
+
+* Figure 6
+
+.code figures/figure-6.go
+
+.link https://github.com/etcd-io/etcd/pull/3927
+
+This one is so simple they don't even have to reformat it to fit into the column.
+
+* Explanation
+
+"When combining with the usage of Go special libraries, the channel creation and goroutine blocking may be buried inside library calls. As shown in Figure 6, a new context object, hcancel, is created at line 1. A new goroutine is created at the same time, and messages can be sent to the new goroutine through the channel field of hcancel. If timeout is larger than 0 at line 4, another context object is created at line 5, and hcancel is pointing to the new object. After that, there is no way to send messages to or close the goroutine attached to the old object. The patch is to avoid creating the extra context object when timeout is larger than 0."
+
+: The original code created a cancellation context based on the passed context, then, if there was an explicit timeout set, set that same cancellation context variable to the timeout context instead. The actual channels being used here are hidden within the Context library, but suffice to say creating a context and then immediately overwriting your reference to it leaves a channel hanging around in the background. (The `hcancel` function can also be called in the case of a cancel, so the patched version is functionally identical to the buggy version.)
+
+* go Documentation
+
+"The `WithCancel`, `WithDeadline`, and `WithTimeout` functions take a `Context` (the parent) and return a derived `Context` (the child) and a `CancelFunc`. Calling the `CancelFunc` cancels the child and its children, removes the parent's reference to the child, and stops any associated timers. Failing to call the `CancelFunc` leaks the child and its children until the parent is canceled or the timer fires. The `go` `vet` tool checks that `CancelFuncs` are used on all control-flow paths."
+
+.link https://golang.org/pkg/context/#pkg-overview
+
+: It's subtle! It's easy to get wrong because the concurrency primitives are hidden away from you. Go is garbage-collected, so you don't need to worry about an extraneous struct lifetime, but there is no such reaper for goroutines.
+
+* Figure 7
+
+.code figures/figure-7.go
+
+I was unable to find the original commit for this one.
+
+* Figure 7
+
+`goroutine1` attempts to send the `request` onto the channel while holding the lock; `goroutine2` attempts to grab the lock, then read from the channel. Neither can proceed. The addition of the empty select lets `goroutine1` proceed past the send in the case of a block, unlocking the lock so that `goroutine2` can itself receive.
+
+: This is one of the more annoying examples in the paper because it's been chopped down to the point of incoherence in order to fit onto the page. Is there supposed to be a defer on the `m.Unlock()` in goroutine2? Why not just make the channel buffered?
+
+* Explanation
+
+It's worth noting here that this does _change_ the behavior of the program: the select will now opt to skip sending the message on the blocked channel in the fixed version, and `goroutine2` will now block trying to read from the channel! Whether this is acceptable or not in the context of the original program is left as an exercise for the reader to discover; regardless, the explanation provided in the paper:
+
+- "The fix is to add a `select` with `default` branch for goroutine1 to make `ch` not blocking any more."
+
+is insufficient to explain the patch shown.
+
+* Observation
+
+"*Observation* *5*: All blocking bugs caused by message passing are related to Go’s new message passing semantics like channel. They can be difficult to detect especially when message passing operations are used together with other synchronization mechanisms."
+
+: This seems obvious when combined with the earlier chart that the vast majority of "message passage semantics" are implemented using channel. The bugs are in the code that's written, not code that isn't.
+
+* Section 6: Non-Blocking Bugs
+
+* Figure 8
+
+.code figures/figure-8.go
+
+.link https://github.com/moby/moby/pull/27037
+
+Variables in anonymous goroutines are shared with the parent unless shadowed by a function argument.
+
+: Here, the buggy version of this (test!) code uses the value of `i` at goroutine execution time, not creation time, and since goroutines can be arbitrarily scheduled, more often than not all executions of the test were run with `i` set to `21`. Properly explicitly passing the value of `i` with every loop fixes the problem (although I personally would rename the variable inside the goroutine, to prevent confusion for someone else who might encounter this code down the line).
+
+* Example of the bug
+
+.play examples/waitgroup-buggy.go   /START OMIT/,/END OMIT/
+
+Shared variable access is shared memory!
+
+* Figure 9
+
+.code figures/figure-9.go
+
+* Figure 9
+
+Why is this necessary? A goroutine can be arbitrarily scheduled. While the entire `p.send()` function is inside a critical section and has the lock, the anonymous goroutine created from inside it escapes the critical section and may run even after the lock has been released.
+
+As such, `p.send()` might run, spin off its goroutine, return, and then `p.stop()` might run, correctly grab the lock, check its status, and then call `Wait()`, all before `p.wg.Add(1)` gets a chance to execute. The `Wait()` won't block since the counter was never incremented, presumably then discarding the `p.post(p)` call inside the goroutine.
+
+.link https://github.com/etcd-io/etcd/commit/2e59635bea6a105581087bb93f68186f35cb0263
+
+: worth noting this wasn't a bug report but a commit inside a larger refactoring the etcd team was doing -- so it never made it to released code!
+
+* Observations
+
+"*Observation* *7*: About two-thirds of shared-memory non-blocking bugs are caused by traditional causes. Go’s new multi-thread semantics and new libraries contribute to the rest one-third."
+
+"*Implication* *5*: New programming models and new libraries that Go introduced to ease multi-thread programming can themselves be the reasons of more concurrency bugs."
+
+*  
+
+.background asides/hold-it.jpg
+
+* 
+
+"More" concurrency bugs?
+
+* 
+
+There's not a scintilla of evidence here that these non-blocking bugs wouldn't have happened even if channels weren't in the language at all, and everything was implemented with locks instead.
+
+Just because bugs _occur_ when using channels doesn't imply that they're the _cause_ of those bugs.
+
+* 
+
+I might be OK with these conclusions if they'd done more work to tease out that, indeed, the programmers who commited the mistakes had misunderstood the concurrency model.
+
+Or if they'd looked at where the bugs were _introduced_ instead of where they were _fixed_, which might provide insight into the causes.
+
+But all they've got here is a set of bugfixes, and they're only the bugs that _someone_ _found_, not all possible bugs.
+
+* What else could have been done?
+
+They could have programmers implement parallel algorithms using traditional primitives versus channels, see if they make similar amounts or types of mistakes.
+
+They could have worked with the projects to see what the experience of working with the primitives was like. They observe the following in the "fixes" section:
+
+"*Observation* *9*: Traditional shared memory synchronization techniques remain to be the main fixes for non-blocking bugs in Go, while channel is used widely to fix not only channel-related bugs but also shared-memory bugs."
+
+"*Implication* *7*: While Go programmers continue to use traditional shared memory protection mechanisms to fix non-blocking bugs, they prefer the use of message passing as a fix in certain cases possibly because they view message passing as a safer way to communicate across threads."
+
+It's not interrogated any further, though! They're just guessing.
+
+* Threats To Validity
+
+"Threats to the validity of our study could come from many aspects. We selected six representative Go applications. There are many other applications implemented in Go and they may not share the same concurrency problems. We only studied concurrency bugs that have been fixed. There could be other concurrency bugs that are rarely reproduced and are never fixed by developers. For some fixed concurrency bugs, there is too little information provided, making them hard to understand. We do not include these bugs in our study. Despite these limitations, we have made our best efforts in collecting real-world Go concurrency bugs and in conducting a comprehensive and unbiased study. We believe that our findings are general enough to motivate and guide future research on fighting Go concurrency bugs."
+
+: Back in the methodology section they discuss some of the data shortcomings, but never the larger methodological one of "is studying fixed bugs a useful predictor at all?" Maybe there isn't an answer for that meta-question. But I wonder.
+
+* Detection
+
+: the non-blocking message-passing bugs are pretty boring so I'm skipping them; if you're interested, check them out. The last thing I want to talk about is their discussion of concurrency-bug detection in go.
+
+* Deadlock Detector
+
+Just rely on the deadlock detector, right?!
+
+.image figures/table-8.png _ 800
+
+Uh-oh.
+
+* I'm not quite dead yet
+
+The deadlock detector is built into the scheduler and can only detect when _all_ goroutines are blocked from continuing. If even one thread can still make progress, it won't fire -- even if there's a dozen other threads stuck in a spaghetti tangle of horrible locking decisions.
+
+This is by design, but it also means it's not useful for catching deadlocks in complex systems -- where it'd be most useful.
+
+: low runtime overhead and no false positives were design goals
+
+* Alternatives
+
+.link https://github.com/sasha-s/go-deadlock/
+
+- Does mutex-lock-order tracking and attempts to catch cases where locks are locked and unlocked non-sequentially, even if they don't cause an immediate deadlock.
+
+.link https://github.com/golang/go/issues/13759
+
+- Adding a "partial deadlock detector" to the language has been proposed, but "the devil is in the details".
+
+* Race Detector
+
+"Go provides a data race detector which uses the same happen-before algorithm as ThreadSanitizer. It can be enabled by building a program using the ‘-race’ flag. During program execution, the race detector creates up to four shadow words for every memory object to store historical accesses of the object. It compares every new access with the stored shadow word values to detect possible races."
+
+* How's it work?
+
+.image figures/table-12.png _ 800
+
+"The data race detector successfully detected 7/13 traditional bugs and 3/4 bugs caused by anonymous functions. For six of these successes, the data race detector reported bugs on every run, while for the rest four, around 100 runs were needed before the detector reported a bug."
+
+* Downsides
+
+"The cost of race detection varies by program, but for a typical program, memory usage may increase by 5-10x and execution time by 2-20x."
+
+"The race detector currently allocates an extra 8 bytes per defer and recover statement. Those extra allocations are not recovered until the goroutine exits. This means that if you have a long-running goroutine that is periodically issuing defer and recover calls, the program memory usage may grow without bound. These memory allocations will not show up in the output of runtime.ReadMemStats or runtime/pprof."
+
+.link https://golang.org/doc/articles/race_detector.html
+
+: There aren't really any alternatives right now to the built-in race detector that I'm aware of.
+
+* Questions?
+
