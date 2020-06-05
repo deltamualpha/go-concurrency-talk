@@ -25,7 +25,7 @@ https://deltamualpha.org/
 
 .link https://www.cs.cmu.edu/~crary/819-f09/Hoare78.pdf C. A. R. Hoare - Communicating Sequential Processes - Communications of the ACM, 21(8):666-677, 1978
 
-.image communicating-sequential-processes-hoare.png _ 800
+.image quotes/communicating-sequential-processes-hoare.png _ 800
 
 : With that citation, I started following a rabbit hole of lookups and citations that I ended up finding very interesting, so let's go exploring for a few minutes, shall we?
 
@@ -75,13 +75,13 @@ https://deltamualpha.org/
 
 .link https://swtch.com/~rsc/thread/cws.pdf A Concurrent Window System
 
-.image a-concurrent-window-system.png _ 800
+.image quotes/a-concurrent-window-system.png _ 800
 
 : Curiously, the first forays into this that I have documentation of are centered on _graphical user interfaces_ -- Squeak and Newsqueak are named as such because they interact with the mouse. I say "curiously" because Go has no GUI components in its standard library, and is definitely not put forward as a language that's _designed_ for GUI use.
 
 * CSP in Newsqueak
 
-.image a-concurrent-window-system-excerpt.png _ 800
+.image quotes/a-concurrent-window-system-excerpt.png _ 800
 
 * CSP in go
 
