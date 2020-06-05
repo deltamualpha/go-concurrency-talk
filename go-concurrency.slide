@@ -15,7 +15,7 @@ https://deltamualpha.org/
 - Any unattributed block-quotes are from the paper
 - Made using the `present` tool from the go toolchain [[https://godoc.org/golang.org/x/tools/present]]
 - (And let me tell you I am going to file some bug reports)
-- Slides will be posted on my github account: [[https://github.com/deltamualpha]]
+- Slides will be posted on my github account: [[https://github.com/deltamualpha/go-concurrency-talk]]
 
 * A Personal Note
 
