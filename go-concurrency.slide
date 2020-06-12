@@ -8,7 +8,12 @@ https://deltamualpha.org/
 
 * What is this paper?
 
+- Understanding Real-World Concurrency Bugs in Go
+
 "Go advocates for the usage of message passing as the means of inter-thread communication and provides several new concurrency mechanisms and libraries to ease multi-threading programming. It is important to understand the implication of these new proposals and the comparison of message passing and shared memory synchronization in terms of program errors, or bugs."
+
+- Tengfei Tu, Linhai Song, Xiaoyu Liu, and Yiying Zhang
+- ASPLOS’19, April 13–17, 2019
 
 * A Few Notes On The Slides
 
@@ -16,6 +21,7 @@ https://deltamualpha.org/
 - Made using the `present` tool from the go toolchain [[https://godoc.org/golang.org/x/tools/present]]
 - (And let me tell you I am going to file some bug reports)
 - Slides will be posted on my github account: [[https://github.com/deltamualpha/go-concurrency-talk]]
+- This talk is structured after how I read papers; we start off with a dive through the history and background of the topic, then implementation of pieces of it, then digesting the conclusions.
 
 * A Personal Note
 
